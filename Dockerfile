@@ -12,7 +12,7 @@ USER root
 COPY --from=caddy /usr/bin/caddy /usr/local/bin/caddy
 COPY --chmod=0644 Caddyfile /etc/grimoire-railway/Caddyfile
 COPY --chmod=0755 railway-start.sh /usr/local/bin/railway-start.sh
-RUN caddy version
+RUN chmod 0755 /etc/grimoire-railway && caddy version
 
 # Grimoire listens on loopback only; Caddy is the public listener on $PORT.
 ENV HOST=127.0.0.1 \
