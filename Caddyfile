@@ -1,0 +1,50 @@
+# Public front for Grimoire on Railway. Grimoire listens on 127.0.0.1:3210.
+# The web app and REST API need the login (user GRIMOIRE_USERNAME, password
+# GRIMOIRE_PASSWORD). The integration routes below check Grimoire's own bearer
+# tokens (created under Settings > Integrations), so they pass straight through.
+{
+	admin off
+	auto_https off
+	persist_config off
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+:{$PORT} {
+	encode gzip
+
+	# Railway's health check, without a password.
+	handle /health {
+		reverse_proxy 127.0.0.1:{$GRIMOIRE_INTERNAL_PORT}
+	}
+
+	# MCP server and browser-extension API: Grimoire's integration bearer token.
+	@integrations path /mcp /integrations/browser/v1/*
+	handle @integrations {
+		reverse_proxy 127.0.0.1:{$GRIMOIRE_INTERNAL_PORT} {
+			flush_interval -1
+		}
+	}
+
+	# Bookmark capture from the extension or scripts: integration bearer token.
+	@capture {
+		path /capture
+		method POST OPTIONS
+	}
+	handle @capture {
+		reverse_proxy 127.0.0.1:{$GRIMOIRE_INTERNAL_PORT}
+	}
+
+	handle {
+		basic_auth {
+			{$GRIMOIRE_USERNAME} {$GRIMOIRE_PASSWORD_HASH}
+		}
+		reverse_proxy 127.0.0.1:{$GRIMOIRE_INTERNAL_PORT} {
+			# Grimoire rejects any Authorization header that isn't one of its
+			# own bearer tokens, so the login header stops here.
+			header_up -Authorization
+			flush_interval -1
+		}
+	}
+}
